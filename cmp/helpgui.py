@@ -6,12 +6,14 @@ from enthought.traits.ui.api import View, Item, HGroup, Handler, \
                     
 desc = {
 'About' : """
-Connectome Mapping Pipeline
+Connectome Mapper
 Version 1.0
 
-Copyright (C) 2010, Ecole Polytechnique Federale de Lausanne (EPFL) and
+Copyright (C) 2011, Ecole Polytechnique Federale de Lausanne (EPFL) and
 Hospital Center and University of Lausanne (UNIL-CHUV), Switzerland
-                
+
+The code is released under the Modified BSD license.
+
 Contact
 -------
 info@connectomics.org
@@ -21,7 +23,6 @@ Contributors
 ------------
 * Jean-Philippe Thiran
 * Reto Meuli
-* Stephan Gerhard
 * Alessandro Daducci
 * Leila Cammoun
 * Patric Hagmann
@@ -29,6 +30,7 @@ Contributors
 * Elda Fischi
 * Christophe Chenes
 * Xavier Gigandet
+* Stephan Gerhard
 
 External Contributors
 ---------------------
@@ -39,39 +41,14 @@ Children's Hospital Boston:
 * Rudolph Pienaar
 
 """,
-'DICOM Converter' : """
-My DICOM Descr""",
+'Help' : """
+For a short description of the processing stages, please refer to the online documentation:
+http://connectomics.org/connectomemapper/
 
-'Registration' : """
-test
-""",
-'Segmentation' : """
-Seg
-""",
-'Parcellation' : """
-Parcel
-""",
-'Reconstruction' : """
-Rec
-""",
-'Tractography' : """
-Tract
-""",
-'Fiber Filtering' : """
-Filter
-""",
-'Connectome Creation' : """
-CC
-""",
-'CFF Converter' : """
-CFF""",
-'Configuration' : """
-Conf
-""",
-'Metadata' : """
-Metad
+If you have any questions or feedback, please use the mailinglist for the Connectome Mapping Toolkit:
+http://groups.google.com/group/cmtk
+
 """
-
 }
 
 
@@ -87,7 +64,7 @@ class HelpDialog ( HasTraits ):
                Item( name  = 'stagedescription', style = 'readonly', show_label = False ),
                show_border = True
         ),
-        title     = 'Connectome Mapping Pipeline Help',
+        title     = 'Connectome Mapper Help',
         buttons   = [ 'OK' ],
         resizable = True,
         width = 0.4,

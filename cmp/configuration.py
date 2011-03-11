@@ -8,18 +8,16 @@ import datetime as dt
 from cmp.logme import getLog
 from cmp.pipeline import pipeline_status
 from cmp.util import KeyValue
-# check if connectomeviewer including compiled dipy is available
-# if so, we can use more fast options in the pipeline
+
 try:
     dipy_here = True
-    import cviewer.libs.dipy.core.track_performance
+    import dipy
 except ImportError:
     dipy_here = False
     
 class PipelineConfiguration(traits.HasTraits):
        
     # project settings
-    project_name = traits.Str(desc="the name of the project")
     project_dir = traits.Directory(exists=False, desc="data path to where the project is stored")
         
     # project metadata (for connectome file)
@@ -32,9 +30,8 @@ class PipelineConfiguration(traits.HasTraits):
     # choose between 'L' (linear) and 'N' (non-linear)
     registration_mode = traits.Enum("Linear", ["Linear", "Nonlinear"], desc="registration mode: linear or non-linear")
     
-    # going to support qBall, HARDI
+    # going to support qBall, HARDI and possibly other modalities
     diffusion_imaging_model = traits.Enum( "DSI", ["DSI", "DTI"])
-    diffusion_imaging_stream = traits.Enum( "Lausanne2011", ["Lausanne2011"] )
     
     # DSI
     nr_of_gradient_directions = traits.Int(515)
@@ -62,10 +59,10 @@ class PipelineConfiguration(traits.HasTraits):
     
     # dicom converter
     do_convert_diffusion = traits.Bool(True)
-    subject_raw_glob_diffusion = traits.Str( "*.ima" )
-    subject_raw_glob_T1 = traits.Str( "*.ima" )
+    subject_raw_glob_diffusion = traits.Str( "*.*" )
+    subject_raw_glob_T1 = traits.Str( "*.*" )
     do_convert_T1 = traits.Bool(True)
-    subject_raw_glob_T2 = traits.Str( "*.ima" )
+    subject_raw_glob_T2 = traits.Str( "*.*" )
     do_convert_T2 = traits.Bool(True)
     extract_diffusion_metadata = traits.Bool(False)
 
@@ -107,7 +104,6 @@ class PipelineConfiguration(traits.HasTraits):
     species = traits.Str('Homo sapiens')
     description = traits.Str()
     
-    
     # parcellation
     custompar_nrroi = traits.Int()
     custompar_nodeinfo = traits.File()
@@ -116,7 +112,7 @@ class PipelineConfiguration(traits.HasTraits):
     # fiber filtering
     apply_splinefilter = traits.Bool(True, desc='apply the spline filtering from diffusion toolkit')
     apply_fiberlength = traits.Bool(True, desc='apply cutoff to fiber lengths')
-    fiber_cutoff_lower = traits.Float(30.0, desc='cut fibers that are shorter in length than given length in mm')
+    fiber_cutoff_lower = traits.Float(20.0, desc='cut fibers that are shorter in length than given length in mm')
     fiber_cutoff_upper = traits.Float(500.0, desc='cut fibers that are longer in length than given length in mm') 
     
     # cff converter
@@ -205,7 +201,7 @@ class PipelineConfiguration(traits.HasTraits):
         else:
             return {'freesurferaparc' : {'number_of_regions' : 84,
                                         # contains name, url, color, freesurfer_label, etc. used for connection matrix
-                                        'node_information_graphml' : op.join(self.get_lausanne_parcellation_path('freesurferaparc'), 'resolution84.graphml'),
+                                        'node_information_graphml' : op.join(self.get_lausanne_parcellation_path('freesurferaparc'), 'resolution83.graphml'),
                                         # scalar node values on fsaverage? or atlas? 
                                         'surface_parcellation' : None,
                                         # scalar node values in fsaverage volume?
@@ -233,7 +229,7 @@ class PipelineConfiguration(traits.HasTraits):
         # try to discover paths from environment variables
         try:
             self.freesurfer_home = op.join(os.environ['FREESURFER_HOME'])
-            self.fsl_home = op.join(os.environ['FSL_HOME'])
+            self.fsl_home = op.join(os.environ['FSLDIR'])
             self.dtk_home = os.environ['DTDIR']
             self.dtk_matrices = op.join(self.dtk_home, 'matrices')
         except KeyError:
@@ -247,8 +243,8 @@ class PipelineConfiguration(traits.HasTraits):
         """ Provides a checking facility for configuration objects """
         
         # project name not empty
-        if self.project_name == '' or self.project_name == None:
-            msg = 'You have to set a project name!'
+        if not op.exists(self.project_dir):
+            msg = 'Your project directory does not exist!'
             raise Exception(msg)
         
         # check metadata
@@ -497,7 +493,14 @@ class PipelineConfiguration(traits.HasTraits):
         
         if name in provided_atlases:
             return op.join(cmp_path, 'data', 'colortable_and_gcs', 'my_atlas_gcs', name)
-    
+
+    def get_freeview_lut(self, name):
+
+        cmp_path = op.dirname(__file__)
+        if name == "NativeFreesurfer":
+            return op.join(cmp_path, 'data', 'parcellation', 'nativefreesurfer', 'freesurferaparc', 'FreeSurferColorLUT_adapted.txt')
+        else:
+            return ""
         
     def get_lausanne_parcellation_path(self, parcellationname):
         
