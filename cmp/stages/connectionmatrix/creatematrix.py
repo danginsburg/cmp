@@ -3,6 +3,7 @@ from time import time
 from glob import glob
 import numpy as np
 import nibabel
+import nibabel.trackvis as tv
 import networkx as nx
 from ...logme import *
 from cmp.util import mean_curvature
@@ -86,6 +87,69 @@ def create_endpoints_array(fib, voxelSize):
     log.info("========================")
 
 
+def extract(Z, shape, position, fill):
+    """ Extract voxel neighbourhood
+        
+    Parameters
+    ----------
+    Z: the original data
+    shape: tuple containing neighbourhood dimensions
+    position: tuple containing central point indexes
+    fill: value for the padding of Z
+    
+    Returns
+    -------
+    R: the neighbourhood of the specified point in Z
+    """	
+
+    R = np.ones(shape, dtype=Z.dtype) * fill
+    P = np.array(list(position)).astype(int)
+    Rs = np.array(list(R.shape)).astype(int)
+    Zs = np.array(list(Z.shape)).astype(int)
+
+    R_start = np.zeros(len(shape)).astype(int)
+    R_stop = np.array(list(shape)).astype(int)
+    Z_start = (P - Rs // 2)
+    Z_start = (np.maximum(Z_start,0)).tolist()
+    Z_stop = (P + Rs // 2) + Rs % 2
+    Z_stop = (np.minimum(Z_stop,Zs)).tolist()
+
+    z = [slice(start,stop) for start,stop in zip(Z_start,Z_stop)]
+    R = Z[z]
+
+    return R
+
+
+def save_fibers(added_fibers, addedfibers_fname):
+    # Save trk file for fibers indexed in the added_fibers array
+    if np.any(added_fibers):
+
+        log.info("Writing file of fibers retrived after endpoints extension")
+
+        # load trackfile (downside, needs everything in memory)        
+	if gconf.apply_fiberlength:
+            intrk = op.join(gconf.get_cmp_fibers(), 'streamline_filtered.trk')
+        elif gconf.apply_splinefilter:
+            intrk = op.join(gconf.get_cmp_fibers(), 'streamline_splinefiltered.trk')
+        else:
+            intrk = op.join(gconf.get_cmp_fibers(), 'streamline.trk')
+    	fibold, hdrold = tv.read(intrk)
+    	
+        # rewrite the trackfile including the added fibers only
+    	outstreams = []
+    	for i in added_fibers:
+        	outstreams.append( fibold[i] )
+    
+    	n_fib_out = len(outstreams)
+    	hdrnew = hdrold.copy()
+    	hdrnew['n_count'] = n_fib_out
+    
+    	tv.write(addedfibers_fname, outstreams, hdrnew)
+
+    else:
+        log.info("No fiber has been retrived after the endpoints extension")
+
+
 def cmat(): 
     """ Create the connection matrix for each resolution using fibers and ROIs.
         
@@ -161,6 +225,13 @@ def cmat():
         dis = 0
         
         log.info("Create the connection matrix")
+		log.info("Check endpoints closeness to GM:")
+		bins = np.arange((gconf.parcellation[r]['number_of_regions']+2))
+	    added_fibers = np.array([], np.int16)
+		zeroep = 0	
+	    mod = 0	
+		naf = 0
+		pc = -1
         for i in range(endpoints.shape[0]):
     
             # ROI start => ROI end
@@ -170,6 +241,40 @@ def cmat():
             except IndexError:
                 log.error("AN INDEXERROR EXCEPTION OCCURED FOR FIBER %s. PLEASE CHECK ENDPOINT GENERATION" % i)
                 continue
+
+	    # Check for endpoints close to GM
+	    if startROI == 0 or endROI == 0:	
+	        # If startROI is 0 but close to a non-zero point, correct its value 
+	        if startROI == 0:
+                    zeroep += 1
+                    # Extract the 3x3x3 voxels neighbourhood of the current point
+	            localROI = extract(roiData, shape=(3,3,3), position=(endpoints[i, 0, 0], endpoints[i, 0, 1], endpoints[i, 0, 2]), fill=0)               
+		    hist, bins_edges = np.histogram(localROI, bins)
+		    hist, bins_edges = hist[1:len(hist)], bins[1:(len(bins_edges))]   
+		    maxindex = hist.argmax()
+		    if hist[maxindex] != 0:
+                        startROI = int(bins_edges[maxindex])
+		        mod += 1				 	 
+	        # If endROI is 0 but close to a non-zero point, correct its value
+	        if endROI == 0:
+                    zeroep += 1
+                    # Extract the 3x3x3 voxels neighbourhood of the current point
+	            localROI = extract(roiData, shape=(3,3,3), position=(endpoints[i, 1, 0], endpoints[i, 1, 1], endpoints[i, 1, 2]), fill=0)                
+		    hist, bins_edges = np.histogram(localROI, bins)
+		    hist, bins_edges = hist[1:len(hist)], bins[1:(len(bins_edges))]   
+		    maxindex = hist.argmax()
+		    if hist[maxindex] != 0:
+                        startROI = int(bins_edges[maxindex])
+		        mod += 1
+		# If now the fiber is not orphan anymore, memorize it in a vector
+		if startROI != 0 and endROI != 0:
+		    added_fibers = np.append(added_fibers, i)
+		    naf += 1
+            # Percent counter
+            pcN = int(round( float(100*i)/n ))
+            if pcN > pc and pcN%1 == 0:    
+                pc = pcN
+                log.info('%4.0f%%' % (pc))
             
             # Filter
             if startROI == 0 or endROI == 0:
@@ -200,9 +305,16 @@ def cmat():
                 
         log.info("Found %i (%f percent out of %i fibers) fibers that start or terminate in a voxel which is not labeled. (orphans)" % (dis, dis*100.0/n, n) )
         log.info("Valid fibers: %i (%f percent)" % (n-dis, 100 - dis*100.0/n) )
+        log.info("Modified %i (%f percent out of %i endpoints in the WM) endpoints in the WM but close to the GM" % (mod, mod*100.0/zeroep, zeroep) )
+	log.info("Valid fibers after endpoints extension: %i (%f percent)" % (n-dis+naf, (n-dis+naf)*100.0/n) )
                                   
         # Add all in the current resolution
         cmat.update({r: {'filename': roi_fname, 'graph': G}})  
+
+	# Save a TrackVis file with the added fibers (endpoints close to the GM
+        log.info("Saving fibers added by the endpoints correction")
+        addedfibers_fname = op.join(gconf.get_cmp_fibers(), 'addedfibers_%s.trk' % str(r))
+	save_fibers(added_fibers, addedfibers_fname)
         
         log.info("Storing fiber labels")
         fiberlabels_fname  = op.join(gconf.get_cmp_fibers(), 'fiberlabels_%s.npy' % str(r))
@@ -217,6 +329,7 @@ def cmat():
     nx.write_gpickle(cmat, op.join(gconf.get_cmp_matrices(), 'cmat.pickle'))
     log.info("done")
     log.info("========================")                        
+
 
 def run(conf):
     """ Run the connection matrix module
