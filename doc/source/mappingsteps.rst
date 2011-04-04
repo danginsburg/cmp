@@ -117,6 +117,9 @@ Nonlinear Registration
 The FSL nonlinear registration tool `FNIRT <http://www.fmrib.ox.ac.uk/fsl/fnirt/index.html>`_ is used to perform this step.
 Default parameters (which can be modified) generally give good results in most cases.
 
+Segmentation
+------------
+We use Freesurfer's recon_all for the segmentation. You can provide custom parameters for `recon_all <http://surfer.nmr.mgh.harvard.edu/fswiki/recon-all>`_.
 
 Parcellation
 ------------
@@ -134,7 +137,7 @@ Lausanne2008
     the new atlases provided by Freesurfer 5.0 (including insula).
 
 .. warning::
-    The Lausanne2008 parcellation is in experimental stage. Use it with caution.
+    The Lausanne2008 parcellation is in experimental stage. Use it with caution. More information `about the parcellation <http://github.com/LTS5/cmp/blob/master/cmp/data/parcellation/lausanne2008/ParcellationLausanne2008.xls>`_.
 
 
 Apply registration
@@ -149,7 +152,15 @@ Reconstruction
 
 Use `DiffusionToolkit <http://www.trackvis.org/dtk/>`_ for extracting the orientation distribution function (ODF), the default parameters are the same as DTKs.
 
-Please refer to `odf_recon <http://www.trackvis.org/dtk/?subsect=script#odf_recon>`_ documentation for the meaning of each parameter.
+Please refer to `odf_recon <http://www.trackvis.org/dtk/?subsect=script#odf_recon>`_ or
+`dti_recon <http://www.trackvis.org/dtk/?subsect=script#dti_recon>`_ documentationfor the meaning of each parameter.
+
+You can also set parameters for the DTB_dtk2dir conversion. This can be helpful if you have to flip axes before tractography.
+
+DTB_dtk2dir parameters
+    --ix                  invert x axis
+    --iy                  invert y axis
+    --iz                  invert z axis
 
 
 Tractography

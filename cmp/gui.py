@@ -230,6 +230,7 @@ class CMPGUI( PipelineConfiguration ):
                Item('nr_of_sampling_directions', label="Number of Sampling Directions"),
                Item('nr_of_b0', label="Number of b0 volumes"),
                Item('odf_recon_param', label="odf_recon Parameters"),
+               Item('dtb_dtk2dir_param', label="DTB_dtk2dir Parameters"),
                show_border = True,
                visible_when = "diffusion_imaging_model == 'DSI'"   
             ),
@@ -237,8 +238,9 @@ class CMPGUI( PipelineConfiguration ):
                Item('gradient_table', label="Gradient Table"),
                Item('gradient_table_file', label="Gradient Table File"),
                Item('nr_of_b0', label="Number of b0 volumes"),
-               Item('max_b0_val', label="Maximumb b value"),
+               Item('max_b0_val', label="Maximum b value"),
                Item('dti_recon_param', label="dti_recon Parameters"),
+               Item('dtb_dtk2dir_param', label="DTB_dtk2dir Parameters"),
                show_border = True,
                visible_when = "diffusion_imaging_model == 'DTI'"
             ),
@@ -248,15 +250,27 @@ class CMPGUI( PipelineConfiguration ):
                Item('nr_of_gradient_directions', label="Number of Gradient Directions"),
                Item('nr_of_sampling_directions', label="Number of Sampling Directions"),
                Item('nr_of_b0', label="Number of b0 volumes"),
-               Item('max_b0_val', label="Maximumb b value"),
+               #Item('max_b0_val', label="Maximumb b value"),
                Item('hardi_recon_param', label="odf_recon Parameters"),
+               Item('dtb_dtk2dir_param', label="DTB_dtk2dir Parameters"),
                show_border = True,
                visible_when = "diffusion_imaging_model == 'QBALL'"
             ),
         visible_when = "active_reconstruction",
         label = "Reconstruction",                         
         )
-    
+
+    segementation_group = Group(
+        VGroup(
+               Item('recon_all_param', label="recon_all Parameters"),
+               show_border = True,
+            ),
+        enabled_when = "active_segmentation",
+        visible_when = "active_segmentation",
+        label = "Segmentation",
+
+    )
+
     tractography_group = Group(
         VGroup(
                Item('streamline_param', label="DTB_streamline Parameters"),
@@ -339,6 +353,7 @@ class CMPGUI( PipelineConfiguration ):
               subject_group,
               dicomconverter_group,
               registration_group,
+              segementation_group,
               parcellation_group,
               reconstruction_group,
               tractography_group,
@@ -522,8 +537,10 @@ class CMPGUI( PipelineConfiguration ):
         wildcard = "CMP Configuration State (*.pkl)|*.pkl|" \
                         "All files (*.*)|*.*"
         dlg = FileDialog(wildcard=wildcard,title="Filename to store configuration state",\
-                         resizeable=False, \
+                         resizeable=False, action = 'save as', \
                          default_directory=self.subject_workingdir,)
         
         if dlg.open() == OK:
+            if not dlg.path.endswith('.pkl'):
+                dlg.path = dlg.path + '.pkl'
             self.save_state(dlg.path)
